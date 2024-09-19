@@ -5,16 +5,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
-from pymongo import MongoClient
-import os
-
-
-
-# MongoDB connection setup
-mongo_uri = os.getenv('MONGO_URI')
-mongo_client = MongoClient(mongo_uri)
-db = mongo_client['ScrapperWorldBank']  # Replace with your database name
-collection = db['Advertisement']  # Replace with your collection name
+import requests
 
 # Setup Firefox options (without headless mode)
 firefox_options = Options()
@@ -41,6 +32,9 @@ WebDriverWait(driver, 20).until(
 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 time.sleep(5)  # Wait for additional rows to load, if necessary
 
+# Define the API endpoint
+api_endpoint = "http://localhost:5000/api/advertisements"
+
 try:
     # Wait until the table is present
     table = WebDriverWait(driver, 20).until(
@@ -66,7 +60,7 @@ try:
             eoi_deadline = cells[3].text.strip()
             href = cells[1].find_element(By.TAG_NAME, 'a').get_attribute('href') if cells[1].find_elements(By.TAG_NAME, 'a') else 'N/A'
 
-            # Prepare data for MongoDB insertion
+            # Prepare data for API POST request
             data = {
                 'procurement_number': procurement_number,
                 'procurement': procurement,
@@ -75,8 +69,12 @@ try:
                 'link': href
             }
 
-            # Insert the data into MongoDB
-            collection.insert_one(data)
+            # Send data to the API
+            response = requests.post(api_endpoint, json=data)
+            if response.status_code == 200:
+                print("Data successfully sent to API")
+            else:
+                print(f"Failed to send data to API. Status code: {response.status_code}")
 
             # Output the results
             print(f"Procurement Number: {procurement_number}")
@@ -86,7 +84,7 @@ try:
             print(f"Link: {href}")
             print('-' * 50)
 
+   
 
 finally:
-    # Only quit after Enter is pressed
     driver.quit()
